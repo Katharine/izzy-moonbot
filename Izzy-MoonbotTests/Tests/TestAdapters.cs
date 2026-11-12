@@ -721,9 +721,24 @@ public class StubClient : IIzzyClient
 
 public class StubBooruClient : IBooruClient
 {
+    public List<(string Query, int? FilterId)> Calls { get; } = new();
     public List<string> StreamUrls { get; } = new();
     public BooruImage? FeaturedImage { get; set; }
     public Exception? FeaturedImageException { get; set; }
+
+    private readonly Queue<BooruSearchResult> _queuedResults = new();
+    private readonly Func<string, int?, BooruSearchResult>? _handler;
+
+    public StubBooruClient(params BooruSearchResult[] results)
+    {
+        foreach (var result in results)
+            _queuedResults.Enqueue(result);
+    }
+
+    public StubBooruClient(Func<string, int?, BooruSearchResult> handler)
+    {
+        _handler = handler;
+    }
 
     public Task<BooruImage> GetFeaturedImageAsync()
     {
@@ -738,5 +753,18 @@ public class StubBooruClient : IBooruClient
     {
         StreamUrls.Add(url);
         return Task.FromResult<Stream>(new MemoryStream());
+    }
+
+    public Task<BooruSearchResult> SearchRandomImageAsync(string query, int? filterId = null)
+    {
+        Calls.Add((query, filterId));
+
+        if (_handler != null)
+            return Task.FromResult(_handler(query, filterId));
+
+        if (_queuedResults.Count > 0)
+            return Task.FromResult(_queuedResults.Dequeue());
+
+        return Task.FromResult<BooruSearchResult>(new BooruSearchResult.NotFound());
     }
 }

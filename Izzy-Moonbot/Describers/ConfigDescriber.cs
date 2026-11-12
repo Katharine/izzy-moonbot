@@ -69,6 +69,10 @@ public class ConfigDescriber
         _config.Add("RecentMessagesPerUser",
             new ConfigItem("RecentMessagesPerUser", ConfigItemType.Integer, "How many of a user's messages I'll store even after they're too old to affect spam pressure. See .help recentmessages for details.",
                 ConfigItemCategory.Misc));
+        _config.Add("BooruFilterId",
+            new ConfigItem("BooruFilterId", ConfigItemType.Integer,
+                "The booru filter ID (`filter_id`) applied when searching the booru. When unset, the booru's default filter is used.",
+                ConfigItemCategory.Misc, true));
 
         // Banner settings
         _config.Add("BannerMode",

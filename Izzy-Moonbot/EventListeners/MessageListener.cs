@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -16,13 +17,15 @@ public class MessageListener
     private readonly Config _config;
     private readonly ModLoggingService _modLogger;
     private readonly TransientState _state;
+    private readonly TemplateService _templateService;
 
-    public MessageListener(LoggingService logger, Config config, ModLoggingService modLogger, TransientState state)
+    public MessageListener(LoggingService logger, Config config, ModLoggingService modLogger, TransientState state, TemplateService templateService)
     {
         _logger = logger;
         _config = config;
         _modLogger = modLogger;
         _state = state;
+        _templateService = templateService;
     }
 
     public void RegisterEvents(IIzzyClient client)
@@ -87,18 +90,42 @@ public class MessageListener
         // If none of the witty patterns matched, do nothing
         if (match.Key == null) return;
 
-        var response = match.Value;
-        if (match.Value.Contains('|'))
+        _state.LastWittyResponse = DateTimeOffset.UtcNow;
+
+        var responses = SplitWittyResponses(match.Value);
+        var response = responses[0];
+        if (responses.Count > 1)
         {
-            var responses = match.Value.Split('|');
-            var responseIndex = new Random().Next(responses.Count());
+            var responseIndex = new Random().Next(responses.Count);
             response = responses[responseIndex];
-            _logger.Log($"Witty response contained {responses.Count()} |-delimited responses. Chose response {responseIndex} at random: \"{response}\"");
+            _logger.Log($"Witty response contained {responses.Count} |-delimited responses. Chose response {responseIndex} at random: \"{response}\"");
         }
+
+        response = await _templateService.ResolveTemplatesAsync(response);
+
         _logger.Log($"Posting witty response \"{response}\" in {message.Channel.Name}");
         await message.Channel.SendMessageAsync(response);
+    }
 
-        _state.LastWittyResponse = DateTimeOffset.UtcNow;
+    private List<string> SplitWittyResponses(string wittyValue)
+    {
+        if (!wittyValue.Contains('|'))
+            return [wittyValue];
+
+        var protectedRanges = _templateService.GetTemplateRanges(wittyValue);
+
+        var responses = new List<string>();
+        var segmentStart = 0;
+        for (var i = 0; i < wittyValue.Length; i++)
+        {
+            if (wittyValue[i] == '|' && !protectedRanges.Any(r => i >= r.Start && i < r.End))
+            {
+                responses.Add(wittyValue.Substring(segmentStart, i - segmentStart));
+                segmentStart = i + 1;
+            }
+        }
+        responses.Add(wittyValue.Substring(segmentStart));
+        return responses;
     }
 
     private async Task ProcessMessageUpdate(

@@ -20,7 +20,8 @@ public class ModCoreModuleTests
         var modLog = new ModLoggingService(cfg);
         var logger = new LoggingService(new TestLogger<Worker>());
         var booruClient = new StubBooruClient();
-        var ss = new ScheduleService(cfg, mod, modLog, logger, scheduledJobs, booruClient);
+        var templateService = new TemplateService(booruClient, cfg, logger);
+        var ss = new ScheduleService(cfg, mod, modLog, logger, scheduledJobs, booruClient, templateService);
 
         var users = new Dictionary<ulong, User>();
         var cfgDescriber = new ConfigDescriber();

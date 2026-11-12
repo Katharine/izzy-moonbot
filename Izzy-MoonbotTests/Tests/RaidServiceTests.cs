@@ -20,7 +20,8 @@ public class RaidServiceTests
 
         var scheduledJobs = new List<ScheduledJob>();
         var booruClient = new StubBooruClient();
-        var ss = new ScheduleService(cfg, mod, modLog, logger, scheduledJobs, booruClient);
+        var templateService = new TemplateService(booruClient, cfg, logger);
+        var ss = new ScheduleService(cfg, mod, modLog, logger, scheduledJobs, booruClient, templateService);
 
         return (
             new RaidService(cfg, mod, logger, modLog, s, gs, ss),

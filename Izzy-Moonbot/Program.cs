@@ -79,6 +79,7 @@ public class Program
             // Services
             services.AddSingleton<LoggingService>();
             services.AddSingleton<IBooruClient, BooruClient>();
+            services.AddSingleton<TemplateService>();
             services.AddSingleton<ModLoggingService>();
             services.AddSingleton<SpamService>();
             services.AddSingleton<ModService>();

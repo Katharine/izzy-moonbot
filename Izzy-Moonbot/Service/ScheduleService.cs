@@ -24,13 +24,14 @@ public class ScheduleService
     private readonly ModService _mod;
     private readonly ModLoggingService _modLogging;
     private readonly IBooruClient _booruClient;
+    private readonly TemplateService _templateService;
 
     private readonly List<ScheduledJob> _scheduledJobs;
 
     private bool _alreadyInitiated;
     private Func<ScheduledEndRaidJob, IIzzyGuild, Task>? _endRaidCallback = null;
 
-    public ScheduleService(Config config, ModService mod, ModLoggingService modLogging, LoggingService logger, List<ScheduledJob> scheduledJobs, IBooruClient booruClient)
+    public ScheduleService(Config config, ModService mod, ModLoggingService modLogging, LoggingService logger, List<ScheduledJob> scheduledJobs, IBooruClient booruClient, TemplateService templateService)
     {
         _config = config;
         _logger = logger;
@@ -38,6 +39,7 @@ public class ScheduleService
         _modLogging = modLogging;
         _scheduledJobs = scheduledJobs;
         _booruClient = booruClient;
+        _templateService = templateService;
     }
 
     public void RegisterEvents(IIzzyClient client)
@@ -559,6 +561,7 @@ public class ScheduleService
             var cmd = cmds[new Random().Next(cmds.Length)];
 
             nextExecuteTime = DateTimeHelper.UtcNow.AddSeconds(_config.BoredCooldown);
+            cmd = await _templateService.ResolveTemplatesAsync(cmd);
 
             _logger.Log($"last BoredChannel message was posted {lastMessage} which was over {_config.BoredCooldown} seconds ago.\n" +
                 $"Posting randomly selected command message: {cmd}\n" +

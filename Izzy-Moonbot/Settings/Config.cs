@@ -30,6 +30,7 @@ public class Config
         HiddenRules = new Dictionary<string, string>();
         BestPonyChannel = 0;
         RecentMessagesPerUser = 10;
+        BooruFilterId = null;
 
         // Banner settings
         _bannerMode = ConfigListener.BannerMode.None;
@@ -105,6 +106,7 @@ public class Config
     public Dictionary<string, string> HiddenRules { get; set; }
     public ulong BestPonyChannel { get; set; }
     public int RecentMessagesPerUser { get; set; }
+    public int? BooruFilterId { get; set; }
 
     // Server settings
     private ConfigListener.BannerMode _bannerMode { get; set; }

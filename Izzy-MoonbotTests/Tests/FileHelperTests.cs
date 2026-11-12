@@ -244,6 +244,7 @@ public class FileHelperTests
               },
               "BestPonyChannel": 0,
               "RecentMessagesPerUser": 10,
+              "BooruFilterId": null,
               "BannerMode": 0,
               "BannerInterval": 1.0,
               "BannerImages": [

@@ -503,6 +503,13 @@ public class ConfigCommandTests
         Assert.AreEqual(20, cfg.RecentMessagesPerUser);
         Assert.AreEqual("I've set `RecentMessagesPerUser` to the following content: 20", generalChannel.Messages.Last().Content);
 
+        // post ".config BooruFilterId 2"
+        Assert.IsNull(cfg.BooruFilterId);
+        context = await client.AddMessageAsync(guild.Id, generalChannel.Id, sunny.Id, ".config BooruFilterId 2");
+        await ConfigCommand.TestableConfigCommandAsync(context, cfg, cd, "BooruFilterId", "2");
+        Assert.AreEqual(2, cfg.BooruFilterId);
+        Assert.AreEqual("I've set `BooruFilterId` to the following content: 2", generalChannel.Messages.Last().Content);
+
         // post ".config ManageNewUserRoles true"
         Assert.IsFalse(cfg.ManageNewUserRoles);
         context = await client.AddMessageAsync(guild.Id, generalChannel.Id, sunny.Id, ".config ManageNewUserRoles true");
@@ -807,7 +814,7 @@ public class ConfigCommandTests
         // Ensure we can't forget to keep this test up to date
         var configPropsCount = typeof(Config).GetProperties().Length;
 
-        Assert.AreEqual(60, configPropsCount,
+        Assert.AreEqual(61, configPropsCount,
             $"\nIf you just added or removed a config item, then this test is probably out of date");
 
         Assert.AreEqual(configPropsCount * 2, generalChannel.Messages.Count(),
@@ -890,5 +897,18 @@ public class ConfigCommandTests
         Assert.AreEqual("Sorry, I couldn't find a config value or category called `spampressure`!" +
             "\nDid you mean `SpamBasePressure` or `SpamImagePressure` or `SpamLengthPressure` or `SpamLinePressure` or `SpamPingPressure` or `SpamRepeatPressure` or `SpamMaxPressure` or `SpamPressureDecay`?",
             generalChannel.Messages.Last().Content);
+    }
+
+    [TestMethod()]
+    public async Task ConfigCommand_NullableInteger_ResetToNothingAsync()
+    {
+        var (cfg, cd, (_, sunny), _, (generalChannel, _, _), guild, client) = TestUtils.DefaultStubs();
+        cfg.BooruFilterId = 42;
+        var context = await client.AddMessageAsync(guild.Id, generalChannel.Id, sunny.Id, ".config BooruFilterId <nothing>");
+
+        await ConfigCommand.TestableConfigCommandAsync(context, cfg, cd, "BooruFilterId", "<nothing>");
+
+        Assert.IsNull(cfg.BooruFilterId);
+        Assert.AreEqual("I've set `BooruFilterId` to the following content: ", generalChannel.Messages.Last().Content);
     }
 }

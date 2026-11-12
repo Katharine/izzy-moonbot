@@ -26,8 +26,9 @@ public class ScheduleServiceTests
         var modLog = new ModLoggingService(cfg);
         var logger = new LoggingService(new TestLogger<Worker>());
         var resolvedBooruClient = booruClient ?? new StubBooruClient();
+        var templateService = new TemplateService(resolvedBooruClient, cfg, logger);
 
-        return new ScheduleService(cfg, mod, modLog, logger, scheduledJobs, resolvedBooruClient);
+        return new ScheduleService(cfg, mod, modLog, logger, scheduledJobs, resolvedBooruClient, templateService);
     }
 
     [TestMethod()]
@@ -254,6 +255,30 @@ public class ScheduleServiceTests
         await ss.Unicycle(client);
         Assert.HasCount(3, generalChannel.Messages);
         Assert.AreEqual("test echo", generalChannel.Messages.Last().Content);
+    }
+
+    [TestMethod()]
+    public async Task BoredCommands_TemplateBlock_ResolvesBeforeSending()
+    {
+        var (cfg, _, _, _, (generalChannel, modChat, _), guild, client) = TestUtils.DefaultStubs();
+        DiscordHelper.DefaultGuildId = guild.Id;
+        DateTimeHelper.FakeUtcNow = TestUtils.FiMEpoch;
+        cfg.ModChannel = modChat.Id;
+        cfg.BoredChannel = generalChannel.Id;
+        cfg.BooruFilterId = 42;
+        cfg.BoredCommands.Add("Idle pony: {{booru: izzy moonbow, safe}}!");
+        var booruClient = new StubBooruClient(
+            new BooruSearchResult.Found("https://manebooru.art/images/4023150", false));
+        var ss = SetupScheduleService(cfg, new Dictionary<ulong, User>(), booruClient);
+        await ss.CreateScheduledJob(new ScheduledJob(DateTimeHelper.UtcNow, DateTimeHelper.UtcNow, new ScheduledBoredCommandsJob()));
+
+        await ss.Unicycle(client);
+
+        Assert.HasCount(1, generalChannel.Messages);
+        Assert.AreEqual("Idle pony: https://manebooru.art/images/4023150!", generalChannel.Messages.Last().Content);
+        CollectionAssert.AreEqual(
+            new[] { ("izzy moonbow, safe", (int?)42) },
+            booruClient.Calls);
     }
 
     [TestMethod()]

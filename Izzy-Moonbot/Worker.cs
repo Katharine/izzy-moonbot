@@ -36,6 +36,7 @@ namespace Izzy_Moonbot
         private readonly SpamService _spamService;
         private readonly RaidService _raidService;
         private readonly ScheduleService _scheduleService;
+        private readonly TemplateService _templateService;
         private readonly IServiceCollection _services;
         private readonly Config _config;
         private readonly TransientState _state;
@@ -50,7 +51,7 @@ namespace Izzy_Moonbot
         public int LaserCount = 10;
 
         public Worker(ILogger<Worker> logger, ModLoggingService modLog, IServiceCollection services, ModService modService, RaidService raidService,
-            FilterService filterService, ScheduleService scheduleService, IOptions<DiscordSettings> discordSettings,
+            FilterService filterService, ScheduleService scheduleService, TemplateService templateService, IOptions<DiscordSettings> discordSettings,
             Config config, TransientState state, Dictionary<ulong, User> users, UserListener userListener, SpamService spamService, QuoteService quoteService,
             ConfigListener configListener, MessageListener messageListener, MonitoringService monitoringService)
         {
@@ -60,6 +61,7 @@ namespace Izzy_Moonbot
             _raidService = raidService;
             _filterService = filterService;
             _scheduleService = scheduleService;
+            _templateService = templateService;
             var commandServiceConfig = new CommandServiceConfig();
             commandServiceConfig.CaseSensitiveCommands = false;
             _commands = new CommandService(commandServiceConfig);
@@ -606,6 +608,7 @@ namespace Izzy_Moonbot
                         new SocketCommandContextAdapter(context),
                         _config,
                         _state,
+                        _templateService,
                         _logger);
                     return;
                 }
@@ -766,6 +769,7 @@ namespace Izzy_Moonbot
             IIzzyContext context,
             Config config,
             TransientState state,
+            TemplateService templateService,
             ILogger<Worker> logger)
         {
             if (!config.MentionResponseEnabled)
@@ -796,6 +800,8 @@ namespace Izzy_Moonbot
             var response = config.MentionResponses.ElementAt(index); // Random response
 
             state.LastMentionResponse = DateTimeHelper.UtcNow;
+
+            response = await templateService.ResolveTemplatesAsync(response);
 
             await context.Channel.SendMessageAsync($"{response}");
         }
