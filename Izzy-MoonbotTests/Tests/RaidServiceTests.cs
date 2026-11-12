@@ -19,7 +19,8 @@ public class RaidServiceTests
         var s = new TransientState();
 
         var scheduledJobs = new List<ScheduledJob>();
-        var ss = new ScheduleService(cfg, mod, modLog, logger, scheduledJobs);
+        var booruClient = new StubBooruClient();
+        var ss = new ScheduleService(cfg, mod, modLog, logger, scheduledJobs, booruClient);
 
         return (
             new RaidService(cfg, mod, logger, modLog, s, gs, ss),

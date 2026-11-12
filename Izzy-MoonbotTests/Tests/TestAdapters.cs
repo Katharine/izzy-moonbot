@@ -718,3 +718,25 @@ public class StubClient : IIzzyClient
         if (t is not null) await t;
     }
 }
+
+public class StubBooruClient : IBooruClient
+{
+    public List<string> StreamUrls { get; } = new();
+    public BooruImage? FeaturedImage { get; set; }
+    public Exception? FeaturedImageException { get; set; }
+
+    public Task<BooruImage> GetFeaturedImageAsync()
+    {
+        if (FeaturedImageException != null)
+            throw FeaturedImageException;
+        if (FeaturedImage == null)
+            throw new InvalidOperationException("StubBooruClient.FeaturedImage was not configured.");
+        return Task.FromResult(FeaturedImage);
+    }
+
+    public Task<Stream> OpenImageStreamAsync(string url)
+    {
+        StreamUrls.Add(url);
+        return Task.FromResult<Stream>(new MemoryStream());
+    }
+}

@@ -90,21 +90,24 @@ public static class DiscordHelper
 
     public static string RedactAllKnownSecrets(string text)
     {
-        text = BooruHelper.RedactBooruSecrets(text);
+        var config = LoadAppConfiguration();
 
-        var secret = GetDiscordSettings().Token;
-        return text.Replace(secret, "<REDACTED SECRET>");
+        var booruSettings = config.GetSection(nameof(BooruSettings)).Get<BooruSettings>()
+            ?? throw new NullReferenceException("Booru settings is null!");
+        if (!string.IsNullOrWhiteSpace(booruSettings.Token))
+            text = text.Replace(booruSettings.Token, "<REDACTED SECRET>");
+
+        var discordSettings = config.GetSection(nameof(DiscordSettings)).Get<DiscordSettings>()
+            ?? throw new NullReferenceException("Discord settings is null!");
+        if (!string.IsNullOrWhiteSpace(discordSettings.Token))
+            text = text.Replace(discordSettings.Token, "<REDACTED SECRET>");
+
+        return text;
     }
 
     public static DiscordSettings GetDiscordSettings()
     {
-        var config = new ConfigurationBuilder()
-            #if DEBUG
-            .AddJsonFile("appsettings.Development.json")
-            #else
-            .AddJsonFile("appsettings.json")
-            #endif
-            .Build();
+        var config = LoadAppConfiguration();
 
         var section = config.GetSection(nameof(DiscordSettings));
         var settings = section.Get<DiscordSettings>();
@@ -112,6 +115,17 @@ public static class DiscordHelper
         if (settings == null) throw new NullReferenceException("Discord settings is null!");
 
         return settings;
+    }
+
+    private static IConfigurationRoot LoadAppConfiguration()
+    {
+        return new ConfigurationBuilder()
+            #if DEBUG
+            .AddJsonFile("appsettings.Development.json")
+            #else
+            .AddJsonFile("appsettings.json")
+            #endif
+            .Build();
     }
     
     public static bool IsProcessableMessage(IIzzyMessage msg)

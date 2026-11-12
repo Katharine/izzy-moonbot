@@ -23,19 +23,21 @@ public class ScheduleService
     private readonly LoggingService _logger;
     private readonly ModService _mod;
     private readonly ModLoggingService _modLogging;
+    private readonly IBooruClient _booruClient;
 
     private readonly List<ScheduledJob> _scheduledJobs;
 
     private bool _alreadyInitiated;
     private Func<ScheduledEndRaidJob, IIzzyGuild, Task>? _endRaidCallback = null;
 
-    public ScheduleService(Config config, ModService mod, ModLoggingService modLogging, LoggingService logger, List<ScheduledJob> scheduledJobs)
+    public ScheduleService(Config config, ModService mod, ModLoggingService modLogging, LoggingService logger, List<ScheduledJob> scheduledJobs, IBooruClient booruClient)
     {
         _config = config;
         _logger = logger;
         _mod = mod;
         _modLogging = modLogging;
         _scheduledJobs = scheduledJobs;
+        _booruClient = booruClient;
     }
 
     public void RegisterEvents(IIzzyClient client)
@@ -451,7 +453,7 @@ public class ScheduleService
             // Set to Manebooru featured.
             try
             {
-                var image = await BooruHelper.GetFeaturedImage();
+                var image = await _booruClient.GetFeaturedImageAsync();
 
                 // Don't check the images if they're not ready yet!
                 if (!image.ThumbnailsGenerated || image.Representations == null)
@@ -477,9 +479,10 @@ public class ScheduleService
                     return;
                 }
 
-                var imageStream = await image.Representations.Thumbnail.GetStreamAsync();
+                await using var imageStream = await _booruClient.OpenImageStreamAsync(image.Representations.Thumbnail);
+                using var bannerImage = new Image(imageStream);
 
-                await guild.SetBanner(new Image(imageStream));
+                await guild.SetBanner(bannerImage);
 
                 var defaultGuild = client.GetGuild(DiscordHelper.DefaultGuild());
                 if (_config.LogChannel != 0)

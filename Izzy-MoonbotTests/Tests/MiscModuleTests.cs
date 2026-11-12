@@ -38,6 +38,7 @@ public class MiscModuleTests
 
         services.AddSingleton<ConfigDescriber>();
         services.AddSingleton<LoggingService>();
+        services.AddSingleton<IBooruClient>(new StubBooruClient());
         services.AddSingleton<ModLoggingService>();
         services.AddSingleton<SpamService>();
         services.AddSingleton<ModService>();
@@ -66,7 +67,8 @@ public class MiscModuleTests
         var mod = new ModService(cfg, new Dictionary<ulong, User>());
         var modLog = new ModLoggingService(cfg);
         var logger = new LoggingService(new TestLogger<Worker>());
-        var ss = new ScheduleService(cfg, mod, modLog, logger, scheduledJobs);
+        var booruClient = new StubBooruClient();
+        var ss = new ScheduleService(cfg, mod, modLog, logger, scheduledJobs, booruClient);
         var gs = new GeneralStorage();
         var quotes = new QuoteStorage();
         var userinfo = new Dictionary<ulong, User>();

@@ -1,4 +1,5 @@
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Izzy_Moonbot.Adapters;
 using Izzy_Moonbot.Settings;
 using Izzy_Moonbot.Service;
 using Izzy_Moonbot.Helpers;
@@ -9,15 +10,24 @@ namespace Izzy_Moonbot_Tests.Services;
 [TestClass()]
 public class ScheduleServiceTests
 {
-    public static ScheduleService SetupScheduleService(Config cfg, Dictionary<ulong, User> users)
+    [TestCleanup]
+    public void Cleanup()
+    {
+        DateTimeHelper.FakeUtcNow = null;
+        DiscordHelper.DefaultGuildId = null;
+    }
+
+    public static ScheduleService SetupScheduleService(
+        Config cfg, Dictionary<ulong, User> users, IBooruClient? booruClient = null)
     {
         var scheduledJobs = new List<ScheduledJob>();
 
         var mod = new ModService(cfg, users);
         var modLog = new ModLoggingService(cfg);
         var logger = new LoggingService(new TestLogger<Worker>());
+        var resolvedBooruClient = booruClient ?? new StubBooruClient();
 
-        return new ScheduleService(cfg, mod, modLog, logger, scheduledJobs);
+        return new ScheduleService(cfg, mod, modLog, logger, scheduledJobs, resolvedBooruClient);
     }
 
     [TestMethod()]
@@ -55,7 +65,8 @@ public class ScheduleServiceTests
         Assert.AreEqual("test echo", generalChannel.Messages.Last().Content);
     }
 
-    // BannerRotation isn't worth testing because of its non-Discord network dependencies
+    // Shuffle/Rotate BannerRotation isn't worth testing here because DiscordHelper.SetBannerToUrlImage makes direct network calls;
+    // ManebooruFeatured BannerRotation is tested below via IBooruClient
     // EndRaid makes little sense to test in isolation from the rest of the raid logic
     [TestMethod()]
     public async Task RunBasicJobTypes_Tests()
@@ -243,5 +254,65 @@ public class ScheduleServiceTests
         await ss.Unicycle(client);
         Assert.HasCount(3, generalChannel.Messages);
         Assert.AreEqual("test echo", generalChannel.Messages.Last().Content);
+    }
+
+    [TestMethod()]
+    public async Task BannerRotation_BooruFeatured_FetchesImageAndStreamViaBooruClient()
+    {
+        var (cfg, _, _, _, (generalChannel, modChat, _), guild, client) = TestUtils.DefaultStubs();
+        DiscordHelper.DefaultGuildId = guild.Id;
+        DateTimeHelper.FakeUtcNow = TestUtils.FiMEpoch;
+        cfg.ModChannel = modChat.Id;
+        cfg.LogChannel = generalChannel.Id;
+        cfg.BannerMode = Izzy_Moonbot.EventListeners.ConfigListener.BannerMode.ManebooruFeatured;
+        var createdAt = new DateTimeOffset(2026, 4, 10, 12, 0, 0, TimeSpan.Zero);
+        var booruClient = new StubBooruClient
+        {
+            FeaturedImage = new BooruImage
+            {
+                Id = 4023150L,
+                CreatedAt = createdAt,
+                Format = BooruImageFormat.PNG,
+                Spoilered = false,
+                ThumbnailsGenerated = true,
+                Representations = new BooruImagesRepresentations(4023150L, BooruImageFormat.PNG, createdAt)
+            }
+        };
+        var ss = SetupScheduleService(cfg, new Dictionary<ulong, User>(), booruClient);
+        await ss.CreateScheduledJob(new ScheduledJob(DateTimeHelper.UtcNow, DateTimeHelper.UtcNow, new ScheduledBannerRotationJob()));
+
+        await ss.Unicycle(client);
+
+        CollectionAssert.AreEqual(
+            new[] { "https://static.manebooru.art/img/2026/4/10/4023150/thumb.png" },
+            booruClient.StreamUrls);
+        Assert.HasCount(1, generalChannel.Messages);
+        Assert.AreEqual(
+            "Set banner to <https://manebooru.art/images/4023150> for Manebooru featured image.",
+            generalChannel.Messages.Last().Content);
+    }
+
+    [TestMethod()]
+    public async Task BannerRotation_BooruFeaturedError_LogsModErrorWithoutFetchingStream()
+    {
+        var (cfg, _, _, _, (_, modChat, _), guild, client) = TestUtils.DefaultStubs();
+        DiscordHelper.DefaultGuildId = guild.Id;
+        DateTimeHelper.FakeUtcNow = TestUtils.FiMEpoch;
+        cfg.ModChannel = modChat.Id;
+        cfg.BannerMode = Izzy_Moonbot.EventListeners.ConfigListener.BannerMode.ManebooruFeatured;
+        var booruClient = new StubBooruClient
+        {
+            FeaturedImageException = new BooruException("[FlurlHttpException] HTTP 503 (<REDACTED SECRET>)")
+        };
+        var ss = SetupScheduleService(cfg, new Dictionary<ulong, User>(), booruClient);
+        await ss.CreateScheduledJob(new ScheduledJob(DateTimeHelper.UtcNow, DateTimeHelper.UtcNow, new ScheduledBannerRotationJob()));
+
+        await ss.Unicycle(client);
+
+        Assert.IsEmpty(booruClient.StreamUrls);
+        Assert.HasCount(1, modChat.Messages);
+        StringAssert.Contains(
+            modChat.Messages.Last().Content,
+            "Failed to change banner to the Manebooru featured image: [BooruException] [FlurlHttpException] HTTP 503 (<REDACTED SECRET>)");
     }
 }

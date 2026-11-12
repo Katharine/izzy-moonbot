@@ -1,4 +1,5 @@
 using System;
+using Izzy_Moonbot.Adapters;
 using Izzy_Moonbot.Describers;
 using Izzy_Moonbot.EventListeners;
 using Izzy_Moonbot.Helpers;
@@ -77,6 +78,7 @@ public class Program
 
             // Services
             services.AddSingleton<LoggingService>();
+            services.AddSingleton<IBooruClient, BooruClient>();
             services.AddSingleton<ModLoggingService>();
             services.AddSingleton<SpamService>();
             services.AddSingleton<ModService>();

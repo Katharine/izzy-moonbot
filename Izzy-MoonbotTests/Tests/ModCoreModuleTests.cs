@@ -1,4 +1,5 @@
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Izzy_Moonbot.Adapters;
 using Izzy_Moonbot.Helpers;
 using Izzy_Moonbot.Settings;
 using Izzy_Moonbot.Service;
@@ -18,7 +19,8 @@ public class ModCoreModuleTests
         var mod = new ModService(cfg, new Dictionary<ulong, User>());
         var modLog = new ModLoggingService(cfg);
         var logger = new LoggingService(new TestLogger<Worker>());
-        var ss = new ScheduleService(cfg, mod, modLog, logger, scheduledJobs);
+        var booruClient = new StubBooruClient();
+        var ss = new ScheduleService(cfg, mod, modLog, logger, scheduledJobs, booruClient);
 
         var users = new Dictionary<ulong, User>();
         var cfgDescriber = new ConfigDescriber();

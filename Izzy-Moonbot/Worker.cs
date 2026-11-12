@@ -602,31 +602,11 @@ namespace Izzy_Moonbot
 
                 if (message.Content.StartsWith($"<@{_client.CurrentUser.Id}>"))
                 {
-                    if (!_config.MentionResponseEnabled)
-                    {
-                        _logger.Log(LogLevel.Information, $"Ignoring mention because MentionResponseEnabled is false.");
-                        return;
-                    }
-                    if (message.Author.Id == _client.CurrentUser.Id)
-                    {
-                        _logger.Log(LogLevel.Information, $"Ignoring self-mention.");
-                        return;
-                    }
-                    var secondsSinceLastMention = (DateTimeOffset.UtcNow - _state.LastMentionResponse).TotalSeconds;
-                    if (secondsSinceLastMention < _config.MentionResponseCooldown)
-                    {
-                        _logger.Log(LogLevel.Information, $"Ignoring mention because it's only been {secondsSinceLastMention} seconds since the last one. " +
-                            $"(MentionResponseCooldown is {_config.MentionResponseCooldown})");
-                        return;
-                    }
-
-                    var random = new Random();
-                    var index = random.Next(_config.MentionResponses.Count);
-                    var response = _config.MentionResponses.ElementAt(index); // Random response
-
-                    _state.LastMentionResponse = DateTimeOffset.UtcNow;
-
-                    await context.Channel.SendMessageAsync($"{response}");
+                    await HandleMentionAsync(
+                        new SocketCommandContextAdapter(context),
+                        _config,
+                        _state,
+                        _logger);
                     return;
                 }
 
@@ -780,6 +760,44 @@ namespace Izzy_Moonbot
 
             _logger.LogInformation(msg.Message);
             return Task.CompletedTask;
+        }
+
+        public static async Task HandleMentionAsync(
+            IIzzyContext context,
+            Config config,
+            TransientState state,
+            ILogger<Worker> logger)
+        {
+            if (!config.MentionResponseEnabled)
+            {
+                logger.Log(LogLevel.Information, "Ignoring mention because MentionResponseEnabled is false.");
+                return;
+            }
+            if (context.Message.Author.Id == context.Client.CurrentUser.Id)
+            {
+                logger.Log(LogLevel.Information, "Ignoring self-mention.");
+                return;
+            }
+            if (config.MentionResponses.Count == 0)
+            {
+                logger.Log(LogLevel.Information, "Ignoring mention because MentionResponses is empty.");
+                return;
+            }
+            var secondsSinceLastMention = (DateTimeHelper.UtcNow - state.LastMentionResponse).TotalSeconds;
+            if (secondsSinceLastMention < config.MentionResponseCooldown)
+            {
+                logger.Log(LogLevel.Information, $"Ignoring mention because it's only been {secondsSinceLastMention} seconds since the last one. " +
+                    $"(MentionResponseCooldown is {config.MentionResponseCooldown})");
+                return;
+            }
+
+            var random = new Random();
+            var index = random.Next(config.MentionResponses.Count);
+            var response = config.MentionResponses.ElementAt(index); // Random response
+
+            state.LastMentionResponse = DateTimeHelper.UtcNow;
+
+            await context.Channel.SendMessageAsync($"{response}");
         }
     }
 }
